@@ -8,6 +8,7 @@
         "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
     },
     "devDependencies": {
+        "@codemirror/view": "^6.41.0",
         "@types/node": "^16.11.6",
         "builtin-modules": "3.3.0",
         "esbuild": "0.17.3",

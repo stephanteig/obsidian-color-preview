@@ -15,6 +15,7 @@ import {
     Setting,
     TFile,
 } from "obsidian";
+import { EditorView } from "@codemirror/view";
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
@@ -163,12 +164,8 @@ export default class ColorPreviewPlugin extends Plugin {
         // ── Slash command suggest (/color) ─────────────────────────────────
         this.registerEditorSuggest(new ColorSlashSuggest(this));
 
-        // ── Paste detection (desktop only — iOS WebKit paste events unreliable) ──
-        if (!Platform.isMobile) {
-            this.registerDomEvent(document, "paste", (evt: ClipboardEvent) => {
-                this.handlePaste(evt);
-            }, true); // capture phase — intercepts before CM6 handles it
-        }
+        // ── Paste detection via CM6 — works on desktop and iOS ────────────────
+        this.registerEditorExtension(this.buildPasteExtension());
 
         this.addSettingTab(new ColorPreviewSettingTab(this.app, this));
     }
@@ -535,19 +532,25 @@ export default class ColorPreviewPlugin extends Plugin {
 
     // ── Paste detection ───────────────────────────────────────────────────────
 
-    handlePaste(evt: ClipboardEvent) {
-        const text = evt.clipboardData?.getData("text/plain")?.trim() ?? "";
-        if (!isValidHex(text)) return;
+    private buildPasteExtension() {
+        const plugin = this;
+        return EditorView.domEventHandlers({
+            paste(evt: ClipboardEvent) {
+                const text = evt.clipboardData?.getData("text/plain")?.trim() ?? "";
+                if (!isValidHex(text)) return false;
 
-        // Only intercept when a markdown editor is focused
-        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-        if (!activeView) return;
-        const editor = activeView.editor;
-        if (!editor.hasFocus()) return;
+                const editor = plugin.app.workspace.activeEditor?.editor;
+                if (!editor) return false;
 
-        evt.preventDefault();
-        const hex = normalizeHex(text);
+                evt.preventDefault();
+                const hex = normalizeHex(text);
+                plugin.showPasteNotice(hex, editor);
+                return true;
+            },
+        });
+    }
 
+    private showPasteNotice(hex: string, editor: Editor) {
         const notice = new Notice("", 10000);
         notice.noticeEl.empty();
         notice.noticeEl.createDiv({ cls: "cp-notice-title", text: `Hex color detected: ${hex}` });
@@ -571,9 +574,9 @@ export default class ColorPreviewPlugin extends Plugin {
         btnRow.createEl("button", { text: "Insert as text", cls: "cp-notice-btn" })
             .addEventListener("click", () => dismiss("text"));
 
-        // Auto-dismiss as text after 10 s
         setTimeout(() => dismiss("text"), 10000);
     }
+
 
     // ── Persistence ───────────────────────────────────────────────────────────
 
