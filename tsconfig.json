@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "baseUrl": ".",
+        "inlineSourceMap": true,
+        "inlineSources": true,
+        "module": "ESNext",
+        "target": "ES6",
+        "allowSyntheticDefaultImports": true,
+        "importHelpers": false,
+        "strictNullChecks": true,
+        "moduleResolution": "node",
+        "lib": ["ES6", "DOM"]
+    },
+    "exclude": ["node_modules"]
+}

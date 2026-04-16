@@ -1,0 +1,10 @@
+{
+    "id": "color-preview",
+    "name": "Color Preview",
+    "version": "1.0.0",
+    "minAppVersion": "1.0.0",
+    "description": "Render color swatches from hex codes with RGB, CMYK, and PMS data. Includes a palette block, inline dot previews, click-to-edit, and multiple insertion methods.",
+    "author": "Stephan Teig",
+    "authorUrl": "https://github.com/stephanteig",
+    "isDesktopOnly": false
+}

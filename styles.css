@@ -1,0 +1,314 @@
+/* ═══════════════════════════════════════════════════
+   Color Preview Plugin — styles.css
+═══════════════════════════════════════════════════ */
+
+/* ── Color card ─────────────────────────────────── */
+
+.cp-container {
+    display: inline-flex;
+    flex-direction: column;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--background-modifier-border);
+    margin: 6px 0;
+    min-width: 200px;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Swatch ─────────────────────────────────────── */
+
+.cp-swatch {
+    width: 100%;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 8px 10px;
+    box-sizing: border-box;
+    cursor: pointer;
+    transition: filter 0.15s ease;
+}
+
+.cp-swatch:hover {
+    filter: brightness(0.92);
+}
+
+.cp-swatch-empty {
+    background: repeating-linear-gradient(
+        45deg,
+        #ccc 0px, #ccc 4px,
+        #eee 4px, #eee 12px
+    );
+    cursor: default;
+}
+
+.cp-swatch-hex {
+    font-family: var(--font-monospace);
+    font-size: 0.72em;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    opacity: 0.85;
+    user-select: text;
+}
+
+.cp-edit-icon {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    display: flex;
+    align-items: center;
+    padding-bottom: 1px;
+}
+
+.cp-swatch:hover .cp-edit-icon {
+    opacity: 0.75;
+}
+
+/* ── Info section ───────────────────────────────── */
+
+.cp-info {
+    padding: 10px 14px 12px;
+    background: var(--background-secondary);
+}
+
+.cp-name {
+    font-weight: 700;
+    font-size: 0.88em;
+    color: var(--text-normal);
+    margin-bottom: 6px;
+    line-height: 1.3;
+}
+
+.cp-row {
+    font-size: 0.82em;
+    line-height: 1.9;
+    white-space: nowrap;
+}
+
+.cp-label {
+    font-weight: 600;
+    color: var(--text-normal);
+}
+
+.cp-value {
+    color: var(--text-muted);
+    border-radius: 3px;
+    padding: 0 2px;
+    transition: background 0.1s;
+}
+
+.cp-mono {
+    font-family: var(--font-monospace);
+    font-size: 0.95em;
+}
+
+/* Calculated (approximate) values */
+.cp-calculated {
+    font-style: italic;
+    opacity: 0.7;
+}
+
+.cp-approx {
+    font-size: 0.75em;
+    color: var(--text-faint);
+    margin-left: 2px;
+}
+
+.cp-calc-note {
+    font-size: 0.72em;
+    font-style: italic;
+    color: var(--text-faint);
+    margin-top: 5px;
+}
+
+/* Copyable values */
+.cp-copyable {
+    cursor: pointer;
+}
+
+.cp-copyable:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+
+.cp-copied {
+    color: var(--color-green) !important;
+    background: transparent !important;
+}
+
+/* ── Palette block ──────────────────────────────── */
+
+.cp-palette {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--background-modifier-border);
+    margin: 6px 0;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+}
+
+.cp-palette-swatch {
+    flex: 1 1 80px;
+    min-height: 90px;
+    display: flex;
+    align-items: flex-end;
+    padding: 7px 8px;
+    box-sizing: border-box;
+    cursor: pointer;
+    transition: filter 0.15s ease;
+    position: relative;
+}
+
+.cp-palette-swatch:hover {
+    filter: brightness(0.9);
+    z-index: 1;
+}
+
+.cp-palette-label {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.cp-palette-name {
+    font-size: 0.72em;
+    font-weight: 600;
+    line-height: 1.2;
+    opacity: 0.9;
+}
+
+.cp-palette-hex {
+    font-family: var(--font-monospace);
+    font-size: 0.68em;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    opacity: 0.8;
+}
+
+/* ── Inline hex dot ─────────────────────────────── */
+
+.cp-inline-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 3px;
+    vertical-align: middle;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    flex-shrink: 0;
+    position: relative;
+    top: -1px;
+}
+
+.cp-inline-hex {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+/* ── Quick hex modal ────────────────────────────── */
+
+.cp-modal-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 12px 0;
+}
+
+.cp-modal-preview {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    border: 1px solid var(--background-modifier-border);
+    flex-shrink: 0;
+    transition: background-color 0.15s ease;
+}
+
+.cp-modal-input {
+    flex: 1;
+    font-family: var(--font-monospace);
+    font-size: 1.1em;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--background-modifier-border);
+    background: var(--background-primary);
+    color: var(--text-normal);
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.cp-modal-input:focus {
+    border-color: var(--interactive-accent);
+}
+
+.cp-modal-error {
+    border-color: var(--color-red) !important;
+    animation: cp-shake 0.3s ease;
+}
+
+@keyframes cp-shake {
+    0%, 100% { transform: translateX(0); }
+    25%       { transform: translateX(-5px); }
+    75%       { transform: translateX(5px); }
+}
+
+.cp-modal-btn {
+    margin-top: 4px;
+    width: 100%;
+}
+
+/* ── Paste notice ───────────────────────────────── */
+
+.cp-notice-title {
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 0.9em;
+}
+
+.cp-notice-preview {
+    width: 100%;
+    height: 32px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.cp-notice-btns {
+    display: flex;
+    gap: 8px;
+}
+
+.cp-notice-btn {
+    flex: 1;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 0.82em;
+    cursor: pointer;
+    border: 1px solid var(--background-modifier-border);
+    background: var(--background-secondary);
+    color: var(--text-normal);
+    transition: background 0.12s;
+}
+
+.cp-notice-btn:hover {
+    background: var(--background-modifier-hover);
+}
+
+.cp-notice-btn-primary {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-color: transparent;
+}
+
+.cp-notice-btn-primary:hover {
+    filter: brightness(1.1);
+    background: var(--interactive-accent);
+}
+
+/* ── Slash suggest dropdown ─────────────────────── */
+
+.cp-suggest-item {
+    padding: 2px 0;
+    font-size: 0.9em;
+}
