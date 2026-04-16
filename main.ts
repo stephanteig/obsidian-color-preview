@@ -15,7 +15,8 @@ import {
     Setting,
     TFile,
 } from "obsidian";
-import { EditorView } from "@codemirror/view";
+import { EditorView, ViewPlugin, WidgetType, Decoration, ViewUpdate } from "@codemirror/view";
+import { RangeSetBuilder } from "@codemirror/state";
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
@@ -101,6 +102,53 @@ function buildColorBlock(hex: string, name?: string): string {
 
 const PENCIL_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
 
+// ─── CM6 inline dot decoration (Live Preview) ─────────────────────────────────
+
+const HEX_RE = /#[0-9a-fA-F]{6}\b/g;
+
+class HexDotWidget extends WidgetType {
+    constructor(readonly hex: string) { super(); }
+    eq(other: HexDotWidget) { return other.hex === this.hex; }
+    toDOM() {
+        const dot = document.createElement("span");
+        dot.className = "cp-inline-dot";
+        dot.style.backgroundColor = this.hex;
+        return dot;
+    }
+    ignoreEvent() { return true; }
+}
+
+function buildInlineDotExtension() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return ViewPlugin.fromClass(
+        class {
+            // typed as any to avoid RangeSet version-mismatch TS error
+            decorations: any;
+            constructor(view: EditorView) { this.decorations = buildDotDecorations(view); }
+            update(u: ViewUpdate) {
+                if (u.docChanged || u.viewportChanged) {
+                    this.decorations = buildDotDecorations(u.view);
+                }
+            }
+        },
+        { decorations: (v: any) => v.decorations }
+    );
+}
+
+function buildDotDecorations(view: EditorView) {
+    const builder = new RangeSetBuilder<Decoration>();
+    for (const { from, to } of view.visibleRanges) {
+        const text = view.state.doc.sliceString(from, to);
+        HEX_RE.lastIndex = 0;
+        let m: RegExpExecArray | null;
+        while ((m = HEX_RE.exec(text)) !== null) {
+            const pos = from + m.index;
+            builder.add(pos, pos, Decoration.widget({ widget: new HexDotWidget(m[0]), side: -1 }));
+        }
+    }
+    return builder.finish();
+}
+
 // ─── Plugin ───────────────────────────────────────────────────────────────────
 
 export default class ColorPreviewPlugin extends Plugin {
@@ -163,6 +211,9 @@ export default class ColorPreviewPlugin extends Plugin {
 
         // ── Slash command suggest (/color) ─────────────────────────────────
         this.registerEditorSuggest(new ColorSlashSuggest(this));
+
+        // ── Inline dot preview in Live Preview (CM6 decorations) ──────────────
+        this.registerEditorExtension(buildInlineDotExtension());
 
         // ── Paste detection via CM6 — works on desktop and iOS ────────────────
         this.registerEditorExtension(this.buildPasteExtension());
