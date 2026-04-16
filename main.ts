@@ -15,7 +15,7 @@ import {
     TFile,
     setIcon,
 } from "obsidian";
-import { EditorView, ViewPlugin, WidgetType, Decoration, ViewUpdate } from "@codemirror/view";
+import { EditorView, ViewPlugin, WidgetType, Decoration, DecorationSet, ViewUpdate } from "@codemirror/view";
 import { RangeSetBuilder } from "@codemirror/state";
 
 // ─── Settings ────────────────────────────────────────────────────────────────
@@ -118,11 +118,9 @@ class HexDotWidget extends WidgetType {
 }
 
 function buildInlineDotExtension() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return ViewPlugin.fromClass(
         class {
-            // typed as any to avoid RangeSet version-mismatch TS error
-            decorations: any;
+            decorations: DecorationSet;
             constructor(view: EditorView) { this.decorations = buildDotDecorations(view); }
             update(u: ViewUpdate) {
                 if (u.docChanged || u.viewportChanged) {
@@ -130,11 +128,11 @@ function buildInlineDotExtension() {
                 }
             }
         },
-        { decorations: (v: any) => v.decorations }
+        { decorations: (v) => v.decorations }
     );
 }
 
-function buildDotDecorations(view: EditorView) {
+function buildDotDecorations(view: EditorView): DecorationSet {
     const builder = new RangeSetBuilder<Decoration>();
     for (const { from, to } of view.visibleRanges) {
         const text = view.state.doc.sliceString(from, to);
@@ -336,7 +334,7 @@ export default class ColorPreviewPlugin extends Plugin {
         // iOS / mobile: native color picker input doesn't open programmatically —
         // fall back to the hex modal pre-filled with the current color
         if (Platform.isMobile) {
-            new QuickHexModal(this.app, (newHex) => applyHex(newHex), currentHex).open();
+            new QuickHexModal(this.app, (newHex) => { void applyHex(newHex); }, currentHex).open();
             return;
         }
 
@@ -629,7 +627,7 @@ export default class ColorPreviewPlugin extends Plugin {
     // ── Persistence ───────────────────────────────────────────────────────────
 
     async loadSettings() {
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData()) as ColorPreviewSettings;
     }
     async saveSettings() {
         await this.saveData(this.settings);
@@ -760,7 +758,6 @@ class ColorPreviewSettingTab extends PluginSettingTab {
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
-        new Setting(containerEl).setName("Color preview").setHeading();
 
         new Setting(containerEl)
             .setName("Swatch height")
