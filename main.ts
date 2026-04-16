@@ -9,6 +9,7 @@ import {
     MarkdownView,
     Modal,
     Notice,
+    Platform,
     Plugin,
     PluginSettingTab,
     Setting,
@@ -162,10 +163,12 @@ export default class ColorPreviewPlugin extends Plugin {
         // ── Slash command suggest (/color) ─────────────────────────────────
         this.registerEditorSuggest(new ColorSlashSuggest(this));
 
-        // ── Paste detection ────────────────────────────────────────────────
-        this.registerDomEvent(document, "paste", (evt: ClipboardEvent) => {
-            this.handlePaste(evt);
-        });
+        // ── Paste detection (desktop only — iOS WebKit paste events unreliable) ──
+        if (!Platform.isMobile) {
+            this.registerDomEvent(document, "paste", (evt: ClipboardEvent) => {
+                this.handlePaste(evt);
+            }, true); // capture phase — intercepts before CM6 handles it
+        }
 
         this.addSettingTab(new ColorPreviewSettingTab(this.app, this));
     }
@@ -268,6 +271,30 @@ export default class ColorPreviewPlugin extends Plugin {
     // ── Edit color in place ───────────────────────────────────────────────────
 
     private editColorInPlace(el: HTMLElement, ctx: MarkdownPostProcessorContext, currentHex: string) {
+        const applyHex = async (newHex: string) => {
+            const sectionInfo = ctx.getSectionInfo(el);
+            if (!sectionInfo) return;
+            const editor = this.app.workspace.activeEditor?.editor;
+            if (editor) {
+                this.replaceHexInEditor(editor, sectionInfo.lineStart, sectionInfo.lineEnd, newHex);
+            } else {
+                const file = this.app.workspace.getActiveFile();
+                if (!file) return;
+                const content = await this.app.vault.read(file);
+                const lines = content.split("\n");
+                this.replaceHexInLines(lines, sectionInfo.lineStart, sectionInfo.lineEnd, newHex);
+                await this.app.vault.modify(file, lines.join("\n"));
+            }
+        };
+
+        // iOS / mobile: native color picker input doesn't open programmatically —
+        // fall back to the hex modal pre-filled with the current color
+        if (Platform.isMobile) {
+            new QuickHexModal(this.app, (newHex) => applyHex(newHex), currentHex).open();
+            return;
+        }
+
+        // Desktop: hidden color input + system picker
         const input = document.createElement("input");
         input.type = "color";
         input.value = isValidHex(currentHex) ? currentHex : "#000000";
@@ -275,35 +302,16 @@ export default class ColorPreviewPlugin extends Plugin {
         document.body.appendChild(input);
 
         let done = false;
-        const apply = async () => {
+        const apply = () => {
             if (done) return;
             done = true;
-            const newHex = input.value.toUpperCase();
-            const sectionInfo = ctx.getSectionInfo(el);
-            if (!sectionInfo) { cleanup(); return; }
-
-            const editor = this.app.workspace.activeEditor?.editor;
-
-            if (editor) {
-                // Live preview / source mode — use editor API
-                this.replaceHexInEditor(editor, sectionInfo.lineStart, sectionInfo.lineEnd, newHex);
-            } else {
-                // Reading view — edit file directly
-                const file = this.app.workspace.getActiveFile();
-                if (!file) { cleanup(); return; }
-                const content = await this.app.vault.read(file);
-                const lines = content.split("\n");
-                this.replaceHexInLines(lines, sectionInfo.lineStart, sectionInfo.lineEnd, newHex);
-                await this.app.vault.modify(file, lines.join("\n"));
-            }
+            applyHex(input.value.toUpperCase());
             cleanup();
         };
-
         const cleanup = () => {
             input.removeEventListener("change", apply);
             if (document.body.contains(input)) document.body.removeChild(input);
         };
-
         input.addEventListener("change", apply);
         input.addEventListener("blur", () => setTimeout(cleanup, 200));
         input.click();
@@ -434,6 +442,12 @@ export default class ColorPreviewPlugin extends Plugin {
     // ── Insertion methods ─────────────────────────────────────────────────────
 
     insertColorWithPicker(editor: Editor) {
+        // Mobile: fall back to hex modal
+        if (Platform.isMobile) {
+            this.openQuickHexModal(editor);
+            return;
+        }
+
         const input = document.createElement("input");
         input.type = "color";
         input.value = "#000000";
@@ -525,13 +539,11 @@ export default class ColorPreviewPlugin extends Plugin {
         const text = evt.clipboardData?.getData("text/plain")?.trim() ?? "";
         if (!isValidHex(text)) return;
 
-        // Only intercept paste into the CM editor area
-        const target = evt.target as HTMLElement;
-        if (!target.closest(".cm-content")) return;
-
+        // Only intercept when a markdown editor is focused
         const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
         if (!activeView) return;
         const editor = activeView.editor;
+        if (!editor.hasFocus()) return;
 
         evt.preventDefault();
         const hex = normalizeHex(text);
@@ -625,10 +637,12 @@ class ColorSlashSuggest extends EditorSuggest<SlashSuggestion> {
 
 class QuickHexModal extends Modal {
     onSubmit: (hex: string) => void;
+    initialValue: string;
 
-    constructor(app: App, onSubmit: (hex: string) => void) {
+    constructor(app: App, onSubmit: (hex: string) => void, initialValue = "") {
         super(app);
         this.onSubmit = onSubmit;
+        this.initialValue = initialValue;
     }
 
     onOpen() {
@@ -638,11 +652,12 @@ class QuickHexModal extends Modal {
 
         const wrapper = contentEl.createDiv({ cls: "cp-modal-wrapper" });
         const preview = wrapper.createDiv({ cls: "cp-modal-preview" });
-        preview.style.backgroundColor = "#000000";
+        const startColor = isValidHex(this.initialValue) ? normalizeHex(this.initialValue) : "#000000";
+        preview.style.backgroundColor = startColor;
 
         const input = wrapper.createEl("input", {
             cls: "cp-modal-input",
-            attr: { type: "text", placeholder: "#000000", spellcheck: "false" },
+            attr: { type: "text", placeholder: "#000000", spellcheck: "false", value: startColor },
         });
 
         input.addEventListener("input", () => {
