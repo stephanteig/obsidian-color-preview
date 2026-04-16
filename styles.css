@@ -207,6 +207,14 @@
     white-space: nowrap;
 }
 
+/* ── Hidden color picker input ──────────────────── */
+
+.cp-hidden-picker {
+    position: fixed;
+    opacity: 0;
+    pointer-events: none;
+}
+
 /* ── Quick hex modal ────────────────────────────── */
 
 .cp-modal-wrapper {

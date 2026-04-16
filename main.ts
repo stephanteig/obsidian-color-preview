@@ -344,9 +344,7 @@ export default class ColorPreviewPlugin extends Plugin {
         const input = document.createElement("input");
         input.type = "color";
         input.value = isValidHex(currentHex) ? currentHex : "#000000";
-        input.style.position = "fixed";
-        input.style.opacity = "0";
-        input.style.pointerEvents = "none";
+        input.addClass("cp-hidden-picker");
         document.body.appendChild(input);
 
         let done = false;
@@ -499,9 +497,7 @@ export default class ColorPreviewPlugin extends Plugin {
         const input = document.createElement("input");
         input.type = "color";
         input.value = "#000000";
-        input.style.position = "fixed";
-        input.style.opacity = "0";
-        input.style.pointerEvents = "none";
+        input.addClass("cp-hidden-picker");
         document.body.appendChild(input);
 
         let done = false;
