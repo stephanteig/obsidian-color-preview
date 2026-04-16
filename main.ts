@@ -6,7 +6,6 @@ import {
     EditorSuggestContext,
     EditorSuggestTriggerInfo,
     MarkdownPostProcessorContext,
-    MarkdownView,
     Modal,
     Notice,
     Platform,
@@ -14,6 +13,7 @@ import {
     PluginSettingTab,
     Setting,
     TFile,
+    setIcon,
 } from "obsidian";
 import { EditorView, ViewPlugin, WidgetType, Decoration, ViewUpdate } from "@codemirror/view";
 import { RangeSetBuilder } from "@codemirror/state";
@@ -100,7 +100,6 @@ function buildColorBlock(hex: string, name?: string): string {
     return lines.join("\n");
 }
 
-const PENCIL_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
 
 // ─── CM6 inline dot decoration (Live Preview) ─────────────────────────────────
 
@@ -231,7 +230,6 @@ export default class ColorPreviewPlugin extends Plugin {
         const name    = data["name"]  || "";
         const hasRgb  = !!data["rgb"];
         const hasCmyk = !!data["cmyk"];
-        const hasPms  = !!data["pms"];
 
         // Derive calculated values from hex
         const rgb = hexToRgb(hex);
@@ -262,7 +260,7 @@ export default class ColorPreviewPlugin extends Plugin {
         }
 
         const editIcon = swatch.createDiv({ cls: "cp-edit-icon" });
-        editIcon.innerHTML = PENCIL_SVG;
+        setIcon(editIcon, "pencil");
         if (hex) editIcon.style.color = isLightColor(hex) ? "#222" : "#fff";
 
         // Click swatch → edit color in place
@@ -299,7 +297,7 @@ export default class ColorPreviewPlugin extends Plugin {
             valSpan.classList.add("cp-copyable");
             valSpan.title = "Click to copy";
             valSpan.addEventListener("click", () => {
-                navigator.clipboard.writeText(row.value).then(() => {
+                void navigator.clipboard.writeText(row.value).then(() => {
                     const orig = valSpan.textContent ?? row.value;
                     valSpan.textContent = "Copied!";
                     valSpan.classList.add("cp-copied");
@@ -307,7 +305,7 @@ export default class ColorPreviewPlugin extends Plugin {
                         valSpan.textContent = orig;
                         valSpan.classList.remove("cp-copied");
                     }, 1200);
-                });
+                }).catch(() => {});
             });
         }
 
@@ -346,14 +344,16 @@ export default class ColorPreviewPlugin extends Plugin {
         const input = document.createElement("input");
         input.type = "color";
         input.value = isValidHex(currentHex) ? currentHex : "#000000";
-        input.style.cssText = "position:fixed;opacity:0;pointer-events:none;";
+        input.style.position = "fixed";
+        input.style.opacity = "0";
+        input.style.pointerEvents = "none";
         document.body.appendChild(input);
 
         let done = false;
         const apply = () => {
             if (done) return;
             done = true;
-            applyHex(input.value.toUpperCase());
+            void applyHex(input.value.toUpperCase());
             cleanup();
         };
         const cleanup = () => {
@@ -422,11 +422,11 @@ export default class ColorPreviewPlugin extends Plugin {
 
             // Click to copy hex
             swatch.addEventListener("click", () => {
-                navigator.clipboard.writeText(hex).then(() => {
+                void navigator.clipboard.writeText(hex).then(() => {
                     const orig = hexEl.textContent ?? hex;
                     hexEl.textContent = "Copied!";
                     setTimeout(() => { hexEl.textContent = orig; }, 1200);
-                });
+                }).catch(() => {});
             });
         }
     }
@@ -499,7 +499,9 @@ export default class ColorPreviewPlugin extends Plugin {
         const input = document.createElement("input");
         input.type = "color";
         input.value = "#000000";
-        input.style.cssText = "position:fixed;opacity:0;pointer-events:none;";
+        input.style.position = "fixed";
+        input.style.opacity = "0";
+        input.style.pointerEvents = "none";
         document.body.appendChild(input);
 
         let done = false;
@@ -584,18 +586,17 @@ export default class ColorPreviewPlugin extends Plugin {
     // ── Paste detection ───────────────────────────────────────────────────────
 
     private buildPasteExtension() {
-        const plugin = this;
         return EditorView.domEventHandlers({
-            paste(evt: ClipboardEvent) {
+            paste: (evt: ClipboardEvent) => {
                 const text = evt.clipboardData?.getData("text/plain")?.trim() ?? "";
                 if (!isValidHex(text)) return false;
 
-                const editor = plugin.app.workspace.activeEditor?.editor;
+                const editor = this.app.workspace.activeEditor?.editor;
                 if (!editor) return false;
 
                 evt.preventDefault();
                 const hex = normalizeHex(text);
-                plugin.showPasteNotice(hex, editor);
+                this.showPasteNotice(hex, editor);
                 return true;
             },
         });
@@ -603,13 +604,13 @@ export default class ColorPreviewPlugin extends Plugin {
 
     private showPasteNotice(hex: string, editor: Editor) {
         const notice = new Notice("", 10000);
-        notice.noticeEl.empty();
-        notice.noticeEl.createDiv({ cls: "cp-notice-title", text: `Hex color detected: ${hex}` });
+        notice.messageEl.empty();
+        notice.messageEl.createDiv({ cls: "cp-notice-title", text: `Hex color detected: ${hex}` });
 
-        const preview = notice.noticeEl.createDiv({ cls: "cp-notice-preview" });
+        const preview = notice.messageEl.createDiv({ cls: "cp-notice-preview" });
         preview.style.backgroundColor = hex;
 
-        const btnRow = notice.noticeEl.createDiv({ cls: "cp-notice-btns" });
+        const btnRow = notice.messageEl.createDiv({ cls: "cp-notice-btns" });
 
         let dismissed = false;
         const dismiss = (action: "block" | "text" | "none") => {
@@ -681,7 +682,7 @@ class ColorSlashSuggest extends EditorSuggest<SlashSuggestion> {
         switch (item.action) {
             case "picker":    this.plugin.insertColorWithPicker(ctx.editor); break;
             case "hex-modal": this.plugin.openQuickHexModal(ctx.editor);     break;
-            case "clipboard": this.plugin.insertFromClipboard(ctx.editor);   break;
+            case "clipboard": void this.plugin.insertFromClipboard(ctx.editor);   break;
             case "template":  this.plugin.insertTemplate(ctx.editor);        break;
         }
     }
@@ -717,9 +718,9 @@ class QuickHexModal extends Modal {
         input.addEventListener("input", () => {
             if (isValidHex(input.value.trim())) {
                 preview.style.backgroundColor = normalizeHex(input.value.trim());
-                preview.style.opacity = "1";
+                preview.removeClass("cp-preview-dim");
             } else {
-                preview.style.opacity = "0.25";
+                preview.addClass("cp-preview-dim");
             }
         });
 
@@ -763,7 +764,7 @@ class ColorPreviewSettingTab extends PluginSettingTab {
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
-        containerEl.createEl("h2", { text: "Color Preview" });
+        new Setting(containerEl).setName("Color preview").setHeading();
 
         new Setting(containerEl)
             .setName("Swatch height")

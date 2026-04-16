@@ -225,6 +225,10 @@
     transition: background-color 0.15s ease;
 }
 
+.cp-preview-dim {
+    opacity: 0.25;
+}
+
 .cp-modal-input {
     flex: 1;
     font-family: var(--font-monospace);
