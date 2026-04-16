@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="400" viewBox="0 0 1280 400">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#16213e"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#00000060"/>
+    </filter>
+    <clipPath id="card1clip"><rect x="0" y="0" width="200" height="260" rx="10"/></clipPath>
+    <clipPath id="card2clip"><rect x="0" y="0" width="200" height="260" rx="10"/></clipPath>
+    <clipPath id="card3clip"><rect x="0" y="0" width="200" height="260" rx="10"/></clipPath>
+    <clipPath id="card4clip"><rect x="0" y="0" width="200" height="260" rx="10"/></clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1280" height="400" fill="url(#bg)"/>
+
+  <!-- Subtle grid pattern -->
+  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#ffffff08" stroke-width="1"/>
+  </pattern>
+  <rect width="1280" height="400" fill="url(#grid)"/>
+
+  <!-- ── Color card 1: Navy ── -->
+  <g transform="translate(60, 70)" filter="url(#shadow)">
+    <rect width="200" height="260" rx="10" fill="#23264F"/>
+    <rect y="90" width="200" height="170" rx="0" fill="#1e1e2e"/>
+    <rect y="240" width="200" height="20" rx="0" fill="#1e1e2e"/>
+    <rect y="90" width="200" height="10" fill="#23264F"/>
+    <!-- hex label on swatch -->
+    <text x="14" y="78" font-family="monospace" font-size="11" font-weight="700" fill="#ffffffaa" letter-spacing="1">#23264F</text>
+    <!-- info rows -->
+    <text x="14" y="118" font-family="sans-serif" font-size="11" font-weight="700" fill="#e0e0e0">Marineblå</text>
+    <text x="14" y="142" font-family="sans-serif" font-size="10" font-weight="600" fill="#e0e0e0">HTML: </text><text x="57" y="142" font-family="monospace" font-size="10" fill="#aaaaaa">#23264F</text>
+    <text x="14" y="160" font-family="sans-serif" font-size="10" font-weight="600" fill="#e0e0e0">RGB: </text><text x="50" y="160" font-family="sans-serif" font-size="10" fill="#aaaaaa">35, 38, 83</text>
+    <text x="14" y="178" font-family="sans-serif" font-size="10" font-weight="600" fill="#e0e0e0">CMYK: </text><text x="56" y="178" font-family="sans-serif" font-size="10" fill="#aaaaaa">100, 94, 33, 33</text>
+    <text x="14" y="196" font-family="sans-serif" font-size="10" font-weight="600" fill="#e0e0e0">PMS: </text><text x="48" y="196" font-family="sans-serif" font-size="10" fill="#aaaaaa">524C</text>
+    <rect width="200" height="260" rx="10" fill="none" stroke="#ffffff18" stroke-width="1"/>
+  </g>
+
+  <!-- ── Color card 2: Red ── -->
+  <g transform="translate(280, 70)" filter="url(#shadow)">
+    <rect width="200" height="260" rx="10" fill="#C0392B"/>
+    <rect y="90" width="200" height="170" rx="0" fill="#1e1e2e"/>
+    <rect y="240" width="200" height="20" rx="0" fill="#1e1e2e"/>
+    <rect y="90" width="200" height="10" fill="#C0392B"/>
+    <text x="14" y="78" font-family="monospace" font-size="11" font-weight="700" fill="#ffffffaa" letter-spacing="1">#C0392B</text>
+    <text x="14" y="118" font-family="sans-serif" font-size="11" font-weight="700" fill="#e0e0e0">Varm Rød</text>
+    <text x="14" y="142" font-family="sans-serif" font-size="10" font-weight="600" fill="#e0e0e0">HTML: </text><text x="57" y="142" font-family="monospace" font-size="10" fill="#aaaaaa">#C0392B</text>
+    <text x="14" y="160" font-family="sans-serif" font-size="10" font-weight="600" fill="#e0e0e0">RGB: </text><text x="50" y="160" font-family="sans-serif" font-size="10" fill="#aaaaaa">192, 57, 43</text>
+    <text x="14" y="178" font-family="sans-serif" font-size="10" font-weight="600" fill="#e0e0e0">CMYK: </text><text x="56" y="178" font-family="sans-serif" font-size="10" fill="#aaaaaa">0, 70, 78, 25</text>
+    <text x="14" y="196" font-family="sans-serif" font-size="10" font-weight="600" fill="#e0e0e0">PMS: </text><text x="48" y="196" font-family="sans-serif" font-size="10" fill="#aaaaaa">485C</text>
+    <rect width="200" height="260" rx="10" fill="none" stroke="#ffffff18" stroke-width="1"/>
+  </g>
+
+  <!-- ── Color card 3: Green ── -->
+  <g transform="translate(500, 70)" filter="url(#shadow)">
+    <rect width="200" height="260" rx="10" fill="#27AE60"/>
+    <rect y="90" width="200" height="170" rx="0" fill="#1e1e2e"/>
+    <rect y="240" width="200" height="20" rx="0" fill="#1e1e2e"/>
+    <rect y="90" width="200" height="10" fill="#27AE60"/>
+    <text x="14" y="78" font-family="monospace" font-size="11" font-weight="700" fill="#222222aa" letter-spacing="1">#27AE60</text>
+    <text x="14" y="118" font-family="sans-serif" font-size="11" font-weight="700" fill="#e0e0e0">Skoggrønn</text>
+    <text x="14" y="142" font-family="sans-serif" font-size="10" font-weight="600" fill="#e0e0e0">HTML: </text><text x="57" y="142" font-family="monospace" font-size="10" fill="#aaaaaa">#27AE60</text>
+    <text x="14" y="160" font-family="sans-serif" font-size="10" font-weight="600" fill="#e0e0e0">RGB: </text><text x="50" y="160" font-family="sans-serif" font-size="10" fill="#aaaaaa">39, 174, 96</text>
+    <text x="14" y="178" font-family="sans-serif" font-size="10" font-weight="600" fill="#e0e0e0">CMYK: </text><text x="56" y="178" font-family="sans-serif" font-size="10" fill="#aaaaaa">78, 0, 45, 32</text>
+    <text x="14" y="196" font-family="sans-serif" font-size="10" font-weight="600" fill="#e0e0e0">PMS: </text><text x="48" y="196" font-family="sans-serif" font-size="10" fill="#aaaaaa">355C</text>
+    <rect width="200" height="260" rx="10" fill="none" stroke="#ffffff18" stroke-width="1"/>
+  </g>
+
+  <!-- ── Palette strip ── -->
+  <g transform="translate(720, 70)" filter="url(#shadow)">
+    <rect width="500" height="60" rx="10" fill="#23264F"/>
+    <rect x="100" y="0" width="100" height="60" fill="#29306E"/>
+    <rect x="200" y="0" width="100" height="60" fill="#2C4A9A"/>
+    <rect x="300" y="0" width="100" height="60" fill="#C0392B"/>
+    <rect x="400" y="0" width="100" height="60" rx="0" fill="#27AE60"/>
+    <rect x="400" y="0" width="100" height="60" rx="10" fill="#27AE60"/>
+    <!-- fix corners -->
+    <rect x="0" y="0" width="100" height="60" rx="10" fill="#23264F"/>
+    <rect x="10" y="0" width="80" height="60" fill="#23264F"/>
+    <rect x="490" y="0" width="100" height="60" rx="10" fill="#27AE60"/>
+    <rect x="490" y="0" width="10" height="60" fill="#27AE60"/>
+    <!-- Outline -->
+    <rect width="500" height="60" rx="10" fill="none" stroke="#ffffff18" stroke-width="1"/>
+    <!-- hex labels -->
+    <text x="14" y="38" font-family="monospace" font-size="9" font-weight="700" fill="#ffffffaa">#23264F</text>
+    <text x="114" y="38" font-family="monospace" font-size="9" font-weight="700" fill="#ffffffaa">#29306E</text>
+    <text x="214" y="38" font-family="monospace" font-size="9" font-weight="700" fill="#ffffffaa">#2C4A9A</text>
+    <text x="314" y="38" font-family="monospace" font-size="9" font-weight="700" fill="#ffffffaa">#C0392B</text>
+    <text x="414" y="38" font-family="monospace" font-size="9" font-weight="700" fill="#222222aa">#27AE60</text>
+  </g>
+
+  <!-- ── Inline hex preview example ── -->
+  <g transform="translate(720, 160)">
+    <rect width="500" height="40" rx="8" fill="#2a2a3e"/>
+    <rect width="500" height="40" rx="8" fill="none" stroke="#ffffff10" stroke-width="1"/>
+    <text x="16" y="26" font-family="sans-serif" font-size="13" fill="#cccccc">Primary color is </text>
+    <!-- inline dot -->
+    <circle cx="204" cy="20" r="6" fill="#23264F" stroke="#ffffff30" stroke-width="1"/>
+    <rect x="216" y="10" width="68" height="20" rx="4" fill="#23264F30"/>
+    <text x="220" y="26" font-family="monospace" font-size="13" fill="#7cb3ff">#23264F</text>
+    <text x="292" y="26" font-family="sans-serif" font-size="13" fill="#cccccc"> and accent is </text>
+    <circle cx="430" cy="20" r="6" fill="#C0392B" stroke="#ffffff30" stroke-width="1"/>
+    <rect x="442" y="10" width="50" height="20" rx="4" fill="#C0392B30"/>
+    <text x="446" y="26" font-family="monospace" font-size="13" fill="#ff9b8a">#C0392B</text>
+  </g>
+
+  <!-- ── Title block ── -->
+  <g transform="translate(720, 228)">
+    <text x="0" y="50" font-family="sans-serif" font-size="42" font-weight="800" fill="#ffffff">Color Preview</text>
+    <text x="2" y="80" font-family="sans-serif" font-size="16" fill="#8888aa">Color swatches, palettes &amp; inline dots for Obsidian</text>
+  </g>
+</svg>
