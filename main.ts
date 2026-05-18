@@ -101,6 +101,146 @@ function buildColorBlock(hex: string, name?: string): string {
 }
 
 
+// ─── Palette extraction ───────────────────────────────────────────────────────
+
+const HEX6_RE = /#([0-9a-fA-F]{6})/g;
+const HEX3_RE = /#([0-9a-fA-F]{3})\b/g;
+const RGB_RE  = /rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)/gi;
+const HSL_RE  = /hsl\(\s*(\d{1,3})\s*,\s*(\d{1,3})%?\s*,\s*(\d{1,3})%?\s*\)/gi;
+
+interface ExtractedColor {
+    hex: string;
+    name: string;
+}
+
+function stripFrontmatterAndCodeBlocks(content: string): string {
+    const lines = content.split("\n");
+    const result: string[] = [];
+    let inFrontmatter = false;
+    let openFence: string | null = null;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trimStart();
+
+        if (i === 0 && line === "---") { inFrontmatter = true; continue; }
+        if (inFrontmatter) { if (line === "---") inFrontmatter = false; continue; }
+
+        if (openFence === null) {
+            const m = trimmed.match(/^(`{3,})/);
+            if (m) { openFence = m[1]; continue; }
+            result.push(line);
+        } else {
+            if (trimmed.startsWith(openFence) && trimmed.slice(openFence.length).trim() === "") {
+                openFence = null;
+            }
+        }
+    }
+    return result.join("\n");
+}
+
+function inferColorName(line: string, match: string, index: number): string {
+    const before = line.slice(0, index).replace(/[*_`#![\]]/g, "").replace(/\s*[:|=→–-]+\s*$/, "").trim();
+    if (before.length > 0 && before.length <= 30) return before;
+    const after = line.slice(index + match.length).replace(/[*_`#![\]]/g, "").replace(/^[\s:|=→–-]+/, "").trim();
+    if (after.length > 0 && after.length <= 30) return after;
+    return "";
+}
+
+function addExtractedColor(seen: Set<string>, results: ExtractedColor[], hex: string, name: string): void {
+    if (!seen.has(hex)) { seen.add(hex); results.push({ hex, name }); }
+}
+
+function extractColorsFromText(text: string): ExtractedColor[] {
+    const lines = text.split("\n");
+    const seen = new Set<string>();
+    const results: ExtractedColor[] = [];
+
+    for (const line of lines) {
+        HEX6_RE.lastIndex = 0;
+        let m: RegExpExecArray | null;
+        while ((m = HEX6_RE.exec(line)) !== null) {
+            addExtractedColor(seen, results, `#${m[1].toUpperCase()}`, inferColorName(line, m[0], m.index));
+        }
+
+        HEX3_RE.lastIndex = 0;
+        while ((m = HEX3_RE.exec(line)) !== null) {
+            const expanded = m[1].split("").map((c) => c + c).join("");
+            addExtractedColor(seen, results, `#${expanded.toUpperCase()}`, inferColorName(line, m[0], m.index));
+        }
+
+        RGB_RE.lastIndex = 0;
+        while ((m = RGB_RE.exec(line)) !== null) {
+            addExtractedColor(seen, results, rgbToHexStr(parseInt(m[1]), parseInt(m[2]), parseInt(m[3])), inferColorName(line, m[0], m.index));
+        }
+
+        HSL_RE.lastIndex = 0;
+        while ((m = HSL_RE.exec(line)) !== null) {
+            const c = hslToRgbValues(parseInt(m[1]), parseInt(m[2]), parseInt(m[3]));
+            addExtractedColor(seen, results, rgbToHexStr(c.r, c.g, c.b), inferColorName(line, m[0], m.index));
+        }
+    }
+    return results;
+}
+
+function buildExtractedPaletteBlock(colors: ExtractedColor[]): string {
+    const lines = colors.map((c) => (c.name ? `${c.name}: ${c.hex}` : c.hex));
+    return "```palette\n" + lines.join("\n") + "\n```";
+}
+
+function insertPaletteAfterFrontmatter(content: string, block: string): string {
+    if (content.startsWith("---")) {
+        const closeIdx = content.indexOf("\n---", 3);
+        if (closeIdx !== -1) {
+            const after = content.slice(closeIdx + 4).trimStart();
+            return content.slice(0, closeIdx + 4) + "\n\n" + block + "\n\n" + after;
+        }
+    }
+    return block + "\n\n" + content;
+}
+
+function rgbToHexStr(r: number, g: number, b: number): string {
+    return "#" + [r, g, b]
+        .map((n) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, "0").toUpperCase())
+        .join("");
+}
+
+function hslToRgbValues(h: number, s: number, l: number): { r: number; g: number; b: number } {
+    s /= 100; l /= 100;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n: number) => {
+        const k = (n + h / 30) % 12;
+        return l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    };
+    return { r: Math.round(f(0) * 255), g: Math.round(f(8) * 255), b: Math.round(f(4) * 255) };
+}
+
+async function runPaletteExtraction(plugin: ColorPreviewPlugin, editor: Editor, file: TFile): Promise<void> {
+    const content = editor.getValue();
+    const text = stripFrontmatterAndCodeBlocks(content);
+    const colors = extractColorsFromText(text);
+
+    if (colors.length === 0) {
+        new Notice("No color values found in this note.");
+        return;
+    }
+
+    const paletteBlock = buildExtractedPaletteBlock(colors);
+    const existingMatch = /^```palette\n[\s\S]*?^```/m.exec(content);
+
+    if (existingMatch) {
+        new ConfirmPaletteReplaceModal(plugin.app, colors.length, () => {
+            const newContent = content.replace(/^```palette\n[\s\S]*?^```/m, paletteBlock);
+            editor.setValue(newContent);
+            new Notice(`Color Preview — replaced palette (${colors.length} color${colors.length === 1 ? "" : "s"}).`);
+        }).open();
+    } else {
+        const newContent = insertPaletteAfterFrontmatter(content, paletteBlock);
+        editor.setValue(newContent);
+        new Notice(`Color Preview — inserted palette (${colors.length} color${colors.length === 1 ? "" : "s"}).`);
+    }
+}
+
 // ─── CM6 inline dot decoration (Live Preview) ─────────────────────────────────
 
 const HEX_RE = /#[0-9a-fA-F]{6}\b/g;
@@ -197,6 +337,16 @@ export default class ColorPreviewPlugin extends Plugin {
             id: "convert-to-color-block",
             name: "Convert selection to color block",
             editorCallback: (editor) => this.convertSelectionToBlock(editor),
+        });
+
+        this.addCommand({
+            id: "extract-palette",
+            name: "Extract palette from note",
+            editorCallback: (editor, ctx) => {
+                const file = ctx.file;
+                if (!file) { new Notice("No active file."); return; }
+                void runPaletteExtraction(this, editor, file);
+            },
         });
 
         // ── Ribbon button ──────────────────────────────────────────────────
@@ -743,6 +893,38 @@ class QuickHexModal extends Modal {
     }
 
     onClose() { this.contentEl.empty(); }
+}
+
+// ─── Confirm palette replace modal ───────────────────────────────────────────
+
+class ConfirmPaletteReplaceModal extends Modal {
+    constructor(
+        app: App,
+        private readonly colorCount: number,
+        private readonly onConfirm: () => void,
+    ) {
+        super(app);
+    }
+
+    onOpen(): void {
+        const { contentEl } = this;
+        contentEl.createEl("h3", { text: "Replace existing palette?" });
+        contentEl.createEl("p", {
+            text: `A palette block already exists in this note. Replace it with ${this.colorCount} extracted color${this.colorCount === 1 ? "" : "s"}?`,
+        });
+
+        const footer = contentEl.createDiv({ cls: "cp-modal-footer" });
+
+        footer.createEl("button", { text: "Cancel" })
+            .addEventListener("click", () => this.close());
+
+        footer.createEl("button", { text: "Replace", cls: "mod-cta" })
+            .addEventListener("click", () => { this.close(); this.onConfirm(); });
+    }
+
+    onClose(): void {
+        this.contentEl.empty();
+    }
 }
 
 // ─── Settings tab ─────────────────────────────────────────────────────────────
