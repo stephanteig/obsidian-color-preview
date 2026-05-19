@@ -36,8 +36,8 @@
 .cp-swatch-empty {
     background: repeating-linear-gradient(
         45deg,
-        #ccc 0px, #ccc 4px,
-        #eee 4px, #eee 12px
+        #cccccc 0px, #cccccc 4px,
+        #eeeeee 4px, #eeeeee 12px
     );
     cursor: default;
 }
@@ -130,9 +130,9 @@
     color: var(--text-normal);
 }
 
-.cp-copied {
-    color: var(--color-green) !important;
-    background: transparent !important;
+.cp-copyable.cp-copied {
+    color: var(--color-green);
+    background: transparent;
 }
 
 /* ── Palette block ──────────────────────────────── */
@@ -254,8 +254,8 @@
     border-color: var(--interactive-accent);
 }
 
-.cp-modal-error {
-    border-color: var(--color-red) !important;
+.cp-modal-input.cp-modal-error {
+    border-color: var(--color-red);
     animation: cp-shake 0.3s ease;
 }
 
