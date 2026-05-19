@@ -5,6 +5,7 @@ import {
     EditorSuggest,
     EditorSuggestContext,
     EditorSuggestTriggerInfo,
+    ItemView,
     MarkdownPostProcessorContext,
     Modal,
     Notice,
@@ -13,10 +14,20 @@ import {
     PluginSettingTab,
     Setting,
     TFile,
+    WorkspaceLeaf,
     setIcon,
 } from "obsidian";
 import { EditorView, ViewPlugin, WidgetType, Decoration, DecorationSet, ViewUpdate } from "@codemirror/view";
 import { RangeSetBuilder } from "@codemirror/state";
+
+// ─── Panel ────────────────────────────────────────────────────────────────────
+
+const VIEW_TYPE_CP_PANEL = "color-preview-panel";
+
+interface ObsidianInternal extends App {
+    setting?: { open(): void; openTabById(id: string): void };
+    commands?: { executeCommandById(id: string): void };
+}
 
 // ─── Settings ────────────────────────────────────────────────────────────────
 
@@ -294,6 +305,15 @@ export default class ColorPreviewPlugin extends Plugin {
     async onload() {
         await this.loadSettings();
 
+        // ── Panel ──────────────────────────────────────────────────────────
+        this.registerView(VIEW_TYPE_CP_PANEL, (leaf) => new ColorPreviewPanelView(leaf, this));
+
+        this.addCommand({
+            id: "open-panel",
+            name: "Open panel",
+            callback: () => { void this.activatePanel(); },
+        });
+
         // ── Code block processors ──────────────────────────────────────────
         this.registerMarkdownCodeBlockProcessor("color", (source, el, ctx) => {
             this.renderColorBlock(source, el, ctx);
@@ -350,10 +370,8 @@ export default class ColorPreviewPlugin extends Plugin {
         });
 
         // ── Ribbon button ──────────────────────────────────────────────────
-        this.addRibbonIcon("palette", "Insert color", () => {
-            const editor = this.app.workspace.activeEditor?.editor;
-            if (editor) this.insertColorWithPicker(editor);
-            else new Notice("Open a note first.");
+        this.addRibbonIcon("palette", "Open panel", () => {
+            void this.activatePanel();
         });
 
         // ── Slash command suggest (/color) ─────────────────────────────────
@@ -366,6 +384,18 @@ export default class ColorPreviewPlugin extends Plugin {
         this.registerEditorExtension(this.buildPasteExtension());
 
         this.addSettingTab(new ColorPreviewSettingTab(this.app, this));
+    }
+
+    // ── Panel activation ──────────────────────────────────────────────────────
+
+    async activatePanel(): Promise<void> {
+        const { workspace } = this.app;
+        let leaf = workspace.getLeavesOfType(VIEW_TYPE_CP_PANEL)[0];
+        if (!leaf) {
+            leaf = workspace.getRightLeaf(false) ?? workspace.getLeaf(true);
+            await leaf.setViewState({ type: VIEW_TYPE_CP_PANEL, active: true });
+        }
+        void workspace.revealLeaf(leaf);
     }
 
     // ── Render: color block ───────────────────────────────────────────────────
@@ -924,6 +954,165 @@ class ConfirmPaletteReplaceModal extends Modal {
 
     onClose(): void {
         this.contentEl.empty();
+    }
+}
+
+// ─── Side panel ───────────────────────────────────────────────────────────────
+
+class ColorPreviewPanelView extends ItemView {
+    constructor(leaf: WorkspaceLeaf, private readonly plugin: ColorPreviewPlugin) {
+        super(leaf);
+    }
+
+    getViewType(): string    { return VIEW_TYPE_CP_PANEL; }
+    getDisplayText(): string { return "Color Preview"; }
+    getIcon(): string        { return "palette"; }
+
+    async onOpen(): Promise<void> {
+        this.render();
+        this.registerEvent(
+            this.app.workspace.on("active-leaf-change", () => this.render())
+        );
+    }
+
+    async onClose(): Promise<void> {
+        this.contentEl.empty();
+    }
+
+    private render(): void {
+        const { contentEl } = this;
+        contentEl.empty();
+        contentEl.addClass("dev-panel");
+
+        this.renderHeader(contentEl);
+        this.renderColorSection(contentEl);
+        this.renderPaletteSection(contentEl);
+    }
+
+    private renderHeader(root: HTMLElement): void {
+        const header = root.createDiv("dev-panel-header");
+
+        const left = header.createDiv("dev-panel-header-left");
+        const logoIcon = left.createSpan("dev-panel-logo-icon");
+        setIcon(logoIcon, "palette");
+        left.createEl("span", { text: "Color Preview", cls: "dev-panel-title" });
+
+        const gearBtn = header.createDiv({ cls: "dev-panel-icon-btn" });
+        gearBtn.setAttribute("aria-label", "Settings");
+        setIcon(gearBtn, "settings");
+        gearBtn.addEventListener("click", () => {
+            const internal = this.app as unknown as ObsidianInternal;
+            internal.setting?.open();
+            internal.setting?.openTabById("color-preview");
+        });
+    }
+
+    private renderColorSection(root: HTMLElement): void {
+        const body = this.section(root, "Color Preview", "palette");
+        const hasEditor = this.hasActiveEditor();
+
+        this.primaryBtn(
+            body, "pipette", "Insert color (picker)",
+            () => this.cmd("insert-color-picker"),
+            !hasEditor,
+        );
+
+        const row = body.createDiv("dev-panel-row");
+        this.secondaryBtn(row, "hash",        "Hex",           () => this.cmd("insert-color-hex"),       !hasEditor);
+        this.secondaryBtn(row, "clipboard",   "Clipboard",     () => this.cmd("insert-color-clipboard"), !hasEditor);
+        this.secondaryBtn(row, "square-plus", "Empty block",   () => this.cmd("insert-color-template"),  !hasEditor);
+
+        this.ghostBtn(body, "replace", "Convert selection", () => this.cmd("convert-to-color-block"), !hasEditor);
+    }
+
+    private renderPaletteSection(root: HTMLElement): void {
+        const body = this.section(root, "Palette Extractor", "pipette");
+        const hasEditor = this.hasActiveEditor();
+
+        this.primaryBtn(
+            body, "pipette", "Extract palette from note",
+            () => this.cmd("extract-palette"),
+            !hasEditor,
+        );
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private section(root: HTMLElement, title: string, icon: string): HTMLElement {
+        const wrap   = root.createDiv("dev-panel-section");
+        const hdr    = wrap.createDiv("dev-panel-section-hdr");
+        const iconEl = hdr.createSpan("dev-panel-section-icon");
+        setIcon(iconEl, icon);
+        hdr.createEl("span", { text: title, cls: "dev-panel-section-title" });
+        return wrap.createDiv("dev-panel-section-body");
+    }
+
+    private primaryBtn(
+        parent: HTMLElement,
+        icon: string,
+        label: string,
+        onClick: () => void,
+        disabled = false,
+    ): HTMLElement {
+        const btn = parent.createEl("button", { cls: "dev-panel-btn-primary" });
+        if (disabled) {
+            btn.addClass("is-disabled");
+            btn.disabled = true;
+            btn.setAttribute("aria-label", `${label} — requires active editor`);
+        }
+        const iconEl = btn.createSpan("dev-panel-btn-icon");
+        setIcon(iconEl, icon);
+        btn.createEl("span", { text: label });
+        if (!disabled) btn.addEventListener("click", onClick);
+        return btn;
+    }
+
+    private secondaryBtn(
+        parent: HTMLElement,
+        icon: string,
+        label: string,
+        onClick: () => void,
+        disabled = false,
+    ): HTMLElement {
+        const btn = parent.createEl("button", { cls: "dev-panel-btn-secondary" });
+        if (disabled) {
+            btn.addClass("is-disabled");
+            btn.disabled = true;
+            btn.setAttribute("aria-label", `${label} — requires active editor`);
+        }
+        const iconEl = btn.createSpan("dev-panel-btn-icon");
+        setIcon(iconEl, icon);
+        btn.createEl("span", { text: label });
+        if (!disabled) btn.addEventListener("click", onClick);
+        return btn;
+    }
+
+    private ghostBtn(
+        parent: HTMLElement,
+        icon: string,
+        label: string,
+        onClick: () => void,
+        disabled = false,
+    ): HTMLElement {
+        const btn = parent.createEl("button", { cls: "dev-panel-btn-ghost" });
+        if (disabled) {
+            btn.addClass("is-disabled");
+            btn.disabled = true;
+            btn.setAttribute("aria-label", `${label} — requires active editor`);
+        }
+        const iconEl = btn.createSpan("dev-panel-btn-icon");
+        setIcon(iconEl, icon);
+        btn.createEl("span", { text: label });
+        if (!disabled) btn.addEventListener("click", onClick);
+        return btn;
+    }
+
+    private cmd(id: string): void {
+        (this.app as unknown as ObsidianInternal).commands?.executeCommandById(`color-preview:${id}`);
+    }
+
+    private hasActiveEditor(): boolean {
+        return !!this.app.workspace.activeEditor?.editor;
     }
 }
 

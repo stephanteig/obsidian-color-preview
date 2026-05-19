@@ -20,6 +20,10 @@ export default defineConfig([
         rules: {
             // These are browser globals in Obsidian's environment
             "no-undef": "off",
+            // "Color Preview" is the plugin name — exempt it as a proper noun
+            "obsidianmd/ui/sentence-case": ["error", {
+                ignoreRegex: ["Color Preview"],
+            }],
         },
     },
 ]);
