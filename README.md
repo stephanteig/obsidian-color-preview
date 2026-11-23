@@ -17,11 +17,11 @@
 
 ## Features
 
-- **Color cards** — visual swatch with hex, RGB, CMYK, and PMS displayed below
+- **Color cards** — visual swatch with hex, RGB, CMYK, PMS and optional OKLCH displayed below
 - **Palette blocks** — display a whole brand palette as a horizontal strip of swatches
 - **Inline dot previews** — small color dots appear automatically next to any hex code in your notes
 - **Click swatch to edit** — tap any swatch to open the color picker and update the hex in place
-- **Click to copy** — tap any value (HTML / RGB / CMYK) to instantly copy it to clipboard
+- **Click to copy** — tap any value (HTML / RGB / CMYK / OKLCH) to instantly copy it to clipboard
 - **Auto-calculated values** — if only a hex is provided, RGB and CMYK are approximated automatically
 - **Multiple insertion methods** — ribbon icon, `/color` slash command, paste detection, command palette, and more
 - **PDF / DOCX safe** — the underlying markdown stays readable as plain text when exported
@@ -39,10 +39,11 @@ hex: #23264F
 rgb: 35, 38, 83
 cmyk: 100, 94, 33, 33
 pms: 524C
+oklch: 0.289 0.073 277.5
 ```
 ````
 
-> **Only `hex` is required.** If `rgb` or `cmyk` are omitted, approximate values are calculated automatically and shown in italic.
+> **Only `hex` (or `oklch`, when enabled) is required.** If `rgb` or `cmyk` are omitted, approximate values are calculated automatically and shown in italic.
 
 <details>
 <summary><strong>Minimal example — hex only</strong></summary>
@@ -74,7 +75,7 @@ Show an entire brand palette as a side-by-side strip. Click any swatch to copy i
 ```
 ````
 
-Each line accepts either `#hex name` or `name: #hex` format.
+Each line accepts either `#hex name`, `oklch(...) name` or `name: color` format.
 
 ---
 
@@ -112,6 +113,20 @@ On mobile, tapping the swatch opens a hex input modal pre-filled with the curren
 
 ---
 
+## OKLCH support
+
+OKLCH colors are supported in color blocks and palettes. Enable `OKLCH support` in the plugin settings to use this feature.
+
+Examples:
+
+```markdown
+oklch: 0.5 0.15 240
+```
+
+```markdown
+oklch(50% 0.15 240)
+```
+
 ## Installation
 
 ### Community Plugin Browser *(once approved)*
@@ -136,6 +151,7 @@ On mobile, tapping the swatch opens a hex input modal pre-filled with the curren
 | Swatch height | 80px | Height of the color rectangle |
 | Max card width | 320px | Maximum width of the color card |
 | Show color name | On | Whether to display the `name` field in the card |
+| Enable OKLCH support | Off | Allow OKLCH colors in color blocks and palettes |
 
 ---
 

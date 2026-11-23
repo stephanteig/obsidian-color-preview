@@ -35,12 +35,14 @@ interface ColorPreviewSettings {
     swatchHeight: number;
     maxWidth: number;
     showColorName: boolean;
+    enableOklch: boolean;
 }
 
 const DEFAULT_SETTINGS: ColorPreviewSettings = {
     swatchHeight: 80,
     maxWidth: 320,
     showColorName: true,
+    enableOklch: false,
 };
 
 // ─── Slash suggestion type ────────────────────────────────────────────────────
@@ -81,6 +83,101 @@ function rgbToCmyk(r: number, g: number, b: number): { c: number; m: number; y: 
         y: Math.round(((1 - bb - k) / d) * 100),
         k: Math.round(k * 100),
     };
+}
+
+function oklchToHex(l: number, c: number, h: number): string {
+  // derived from https://polyverse.dev/articles/colorspaces.html#oklab
+
+  // OKLCH → OKLab
+  const angle = (h * Math.PI) / 180;
+  const a = c * Math.cos(angle);
+  const b = c * Math.sin(angle);
+
+  // OKLab → LMS
+  const ll = l + 0.3963377774 * a + 0.2158037573 * b;
+  const m = l - 0.1055613458 * a - 0.0638541728 * b;
+  const s = l - 0.0894841775 * a - 1.291485548 * b;
+
+  const l3 = ll ** 3;
+  const m3 = m ** 3;
+  const s3 = s ** 3;
+
+  // LMS → linear sRGB
+  const r =  4.0767416621 * l3 - 3.3077115913 * m3 + 0.2309699292 * s3;
+  const g = -1.2684380046 * l3 + 2.6097574011 * m3 - 0.3413193965 * s3;
+  const blue = -0.0041960863 * l3 - 0.7034186147 * m3 + 1.707614701 * s3;
+
+  // Linear sRGB → gamma-corrected sRGB
+  const toSrgb = (value: number) => {
+    const v = Math.max(0, Math.min(1, value));
+    return v <= 0.0031308
+      ? 12.92 * v
+      : 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
+  };
+
+  // sRGB → HEX
+  const toHex = (value: number) =>
+    Math.round(toSrgb(value) * 255)
+      .toString(16)
+      .padStart(2, "0");
+
+  return `#${toHex(r)}${toHex(g)}${toHex(blue)}`.toUpperCase();
+}
+
+type Oklch = {
+  l: number;
+  c: number;
+  h: number;
+};
+
+function rgbToOklch(rgb: { r: number; g: number; b: number } | null): Oklch | null {
+  if (!rgb) return null;
+
+  // sRGB → linear sRGB
+  const r = srgbToLinear(rgb.r);
+  const g = srgbToLinear(rgb.g);
+  const b = srgbToLinear(rgb.b);
+
+  // Linear sRGB → LMS
+  const l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;
+  const m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b;
+  const s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b;
+
+  // LMS → OKLab
+  const ll = Math.cbrt(l);
+  const mm = Math.cbrt(m);
+  const ss = Math.cbrt(s);
+
+  const L = 0.2104542553 * ll + 0.7936177850 * mm - 0.0040720468 * ss;
+  const a = 1.9779984951 * ll - 2.4285922050 * mm + 0.4505937099 * ss;
+  const labB = 0.0259040371 * ll + 0.7827717662 * mm - 0.8086757660 * ss;
+
+  // OKLab → OKLCH
+  const C = Math.sqrt(a ** 2 + labB ** 2);
+  const H = (Math.atan2(labB, a) * 180) / Math.PI;
+
+  return { l: L, c: C, h: (H + 360) % 360 };
+}
+
+// Support both CSS-style oklch() and plain values, with space or comma separators.
+function normalizeOklch(oklch: string): Oklch | null {
+  const match = oklch.match(/^(?:oklch\()?\s*([\d.]+%?)(?:\s*,\s*|\s+)([\d.]+)(?:\s*,\s*|\s+)([\d.]+)\s*\)?$/i);
+
+  if (!match) return null;
+
+  const [, l, c, h] = match;
+  return {
+    l:Number(l.replace("%", "")) / (l.endsWith("%") ? 100 : 1),
+    c:Number(c),
+    h:Number(h)
+};
+}
+
+function srgbToLinear(value: number): number {
+    value /= 255;
+    return value <= 0.04045
+        ? value / 12.92
+        : ((value + 0.055) / 1.055) ** 2.4;
 }
 
 function isLightColor(hex: string): boolean {
@@ -403,7 +500,10 @@ export default class ColorPreviewPlugin extends Plugin {
     renderColorBlock(source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext) {
         const data = parseColorSource(source);
         const rawHex = (data["hex"] || data["html"] || data["color"] || "").trim();
-        const hex = rawHex ? normalizeHex(rawHex) : "";
+        const rawOklch = (this.settings.enableOklch && data["oklch"] || "").trim()
+
+        const oklch = rawOklch ? normalizeOklch(rawOklch) : null;
+        const hex = rawHex ? normalizeHex(rawHex) : oklch ? oklchToHex(oklch.l, oklch.c, oklch.h) : "";
 
         const name    = data["name"]  || "";
         const hasRgb  = !!data["rgb"];
@@ -416,10 +516,17 @@ export default class ColorPreviewPlugin extends Plugin {
         const calcCmykStr = calcCmykObj
             ? `${calcCmykObj.c}, ${calcCmykObj.m}, ${calcCmykObj.y}, ${calcCmykObj.k}`
             : "";
+        const calcOklchObj = this.settings.enableOklch
+            ? oklch || rgbToOklch(rgb)
+            : null;
+        const calcOklchStr = calcOklchObj
+            ? `${calcOklchObj.l.toFixed(3)} ${calcOklchObj.c.toFixed(3)} ${calcOklchObj.h.toFixed(1)}`
+            : "";
 
         const rgbDisplay  = data["rgb"]  || calcRgbStr;
         const cmykDisplay = data["cmyk"] || calcCmykStr;
-        const pmsDisplay  = data["pms"]  || "";
+        const pmsDisplay = data["pms"] || "";
+        const oklchDisplay = data["oklch"] || calcOklchStr;
 
         const container = el.createDiv({ cls: "cp-container" });
         container.style.maxWidth = `${this.settings.maxWidth}px`;
@@ -451,15 +558,16 @@ export default class ColorPreviewPlugin extends Plugin {
             info.createDiv({ cls: "cp-name", text: name });
         }
 
-        const rows: { label: string; value: string; mono: boolean; calculated: boolean }[] = [
-            { label: "HTML",  value: hex,          mono: true,  calculated: false },
-            { label: "RGB",   value: rgbDisplay,   mono: false, calculated: !hasRgb  && !!calcRgbStr  },
-            { label: "CMYK",  value: cmykDisplay,  mono: false, calculated: !hasCmyk && !!calcCmykStr },
-            { label: "PMS",   value: pmsDisplay,   mono: false, calculated: false },
+        const rows: { label: string; value: string; mono: boolean; calculated: boolean, enabled: boolean }[] = [
+            { label: "HTML",  value: hex,          mono: true,  calculated: !!rawOklch, enabled: true},
+            { label: "RGB",   value: rgbDisplay,   mono: false, calculated: !hasRgb  && !!calcRgbStr, enabled: true  },
+            { label: "CMYK",  value: cmykDisplay,  mono: false, calculated: !hasCmyk && !!calcCmykStr, enabled: true },
+            { label: "PMS", value: pmsDisplay, mono: false, calculated: false, enabled: true },
+            { label: "OKLCH", value: oklchDisplay, mono: true, calculated: !rawOklch && !!calcOklchStr, enabled: this.settings.enableOklch }
         ];
 
         for (const row of rows) {
-            if (!row.value) continue;
+            if (!row.value || !row.enabled) continue;
             const rowEl = info.createDiv({ cls: "cp-row" });
             rowEl.createSpan({ cls: "cp-label", text: `${row.label}: ` });
 
@@ -573,18 +681,39 @@ export default class ColorPreviewPlugin extends Plugin {
             const line = rawLine.trim();
             if (!line) continue;
 
-            // Accept: `#hex [name]` or `name: #hex`
+            // Accept: `#hex [name]`, `oklch(...) [name]` or `name: color`
             let hex = "";
             let name = "";
+
             const colonIdx = line.indexOf(":");
+
             if (colonIdx !== -1) {
                 name = line.slice(0, colonIdx).trim();
-                hex  = normalizeHex(line.slice(colonIdx + 1).trim());
+                const rawColor = line.slice(colonIdx + 1).trim();
+
+                hex = normalizeHex(rawColor);
+
+                if (!isValidHex(hex) && this.settings.enableOklch) {
+                    const oklch = normalizeOklch(rawColor);
+                    if (oklch) hex = oklchToHex(oklch.l, oklch.c, oklch.h);
+                }
             } else {
-                const parts = line.split(/\s+/);
-                hex  = normalizeHex(parts[0]);
-                name = parts.slice(1).join(" ");
+                const oklchMatch = line.match(/^(oklch\([^)]*\))(?:\s+(.*))?$/i);
+
+                if (oklchMatch) {
+                    name = oklchMatch[2] || "";
+
+                    if (this.settings.enableOklch) {
+                        const oklch = normalizeOklch(oklchMatch[1]);
+                        if (oklch) hex = oklchToHex(oklch.l, oklch.c, oklch.h);
+                    }
+                } else {
+                    const parts = line.split(/\s+/);
+                    hex = normalizeHex(parts[0]);
+                    name = parts.slice(1).join(" ");
+                }
             }
+
             if (!isValidHex(hex)) continue;
 
             const swatch = strip.createDiv({ cls: "cp-palette-swatch" });
@@ -721,6 +850,7 @@ export default class ColorPreviewPlugin extends Plugin {
             "rgb: ",
             "cmyk: ",
             "pms: ",
+            ...(this.settings.enableOklch ? ["oklch: "] : []),
             "```",
         ].join("\n");
         editor.replaceSelection(template);
@@ -734,17 +864,19 @@ export default class ColorPreviewPlugin extends Plugin {
         for (const line of sel.split("\n")) {
             const clean = line.replace(/\*\*/g, "").trim();
             const lower = clean.toLowerCase();
-            if (lower.startsWith("html:") || lower.startsWith("hex:")) {
-                data["hex"] = clean.replace(/^html:/i, "").replace(/^hex:/i, "").replace(/`/g, "").trim();
-            } else if (lower.startsWith("rgb:")) {
-                data["rgb"] = clean.replace(/^rgb:/i, "").trim();
-            } else if (lower.startsWith("cmyk:")) {
-                data["cmyk"] = clean.replace(/^cmyk:/i, "").trim();
-            } else if (lower.startsWith("pms:")) {
-                data["pms"] = clean.replace(/^pms:/i, "").trim();
-            } else if (clean && !Object.keys(data).length && !clean.includes(":")) {
-                data["name"] = clean;
-            }
+          if (lower.startsWith("html:") || lower.startsWith("hex:")) {
+            data["hex"] = clean.replace(/^html:/i, "").replace(/^hex:/i, "").replace(/`/g, "").trim();
+          } else if (lower.startsWith("rgb:")) {
+            data["rgb"] = clean.replace(/^rgb:/i, "").trim();
+          } else if (lower.startsWith("cmyk:")) {
+            data["cmyk"] = clean.replace(/^cmyk:/i, "").trim();
+          } else if (lower.startsWith("pms:")) {
+            data["pms"] = clean.replace(/^pms:/i, "").trim();
+          } else if (clean && !Object.keys(data).length && !clean.includes(":")) {
+            data["name"] = clean;
+          } else if (this.settings.enableOklch && lower.startsWith("oklch:")) {
+            data["oklch"] = clean.replace(/^oklch:/i, "").trim();
+          }
         }
 
         const lines = ["```color"];
@@ -753,6 +885,7 @@ export default class ColorPreviewPlugin extends Plugin {
         if (data["rgb"])   lines.push(`rgb: ${data["rgb"]}`);
         if (data["cmyk"])  lines.push(`cmyk: ${data["cmyk"]}`);
         if (data["pms"])   lines.push(`pms: ${data["pms"]}`);
+        if (data["oklch"]) lines.push(`oklch: ${data["oklch"]}`);
         lines.push("```");
         editor.replaceSelection(lines.join("\n"));
     }
@@ -1150,6 +1283,17 @@ class ColorPreviewSettingTab extends PluginSettingTab {
             .setName("Show color name")
             .setDesc("Display the name field in the preview card")
             .addToggle((t) => t.setValue(this.plugin.settings.showColorName)
-                .onChange(async (v) => { this.plugin.settings.showColorName = v; await this.plugin.saveSettings(); }));
+              .onChange(async (v) => { this.plugin.settings.showColorName = v; await this.plugin.saveSettings(); }));
+
+      new Setting(containerEl)
+            // eslint-disable-next-line obsidianmd/ui/sentence-case
+            .setName("Enable OKLCH support")
+            // eslint-disable-next-line obsidianmd/ui/sentence-case
+            .setDesc("Allow OKLCH colors in color blocks and palettes")
+            .addToggle((t) => t.setValue(this.plugin.settings.enableOklch)
+                .onChange(async (v) => {
+                    this.plugin.settings.enableOklch = v;
+                    await this.plugin.saveSettings();
+                }));
     }
 }
